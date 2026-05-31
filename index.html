@@ -7,7 +7,7 @@
     <style>
         :root {
             --space-bg: #03030c;
-            --panel-bg: rgba(7, 7, 22, 0.85);
+            --panel-bg: rgba(7, 7, 22, 0.9);
             --text-color: #f1f5f9;
             --accent-color: #38bdf8;
             
@@ -30,6 +30,7 @@
             color: var(--text-color);
             font-family: 'Segoe UI', system-ui, sans-serif;
             display: flex;
+            flex-direction: column; /* Changed to column to allow bottom placement layout */
             height: 100vh;
             overflow: hidden;
             position: relative;
@@ -187,27 +188,70 @@
         #pluto   { width: 10px; height: 10px; background: radial-gradient(circle at 30% 30%, #ecdacc 0%, #80695a 70%, #14100c 100%); }
 
 
-        /* Right Side: Dashboard Info Panel */
+        /* Bottom Floating glass drawer architecture */
         .detail-panel {
-            width: 380px;
+            position: absolute;
+            bottom: 0;
+            left: 50%;
+            transform: translate(-50%, 100%); /* Hides completely below the screen boundaries */
+            width: 85%;
+            max-width: 900px;
+            height: 260px;
             background-color: var(--panel-bg);
-            border-left: 1px solid rgba(255, 255, 255, 0.08);
-            padding: 35px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-bottom: none;
+            border-radius: 20px 20px 0 0;
+            padding: 25px 35px;
             box-sizing: border-box;
-            display: flex;
-            flex-direction: column;
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
+            backdrop-filter: blur(25px);
+            -webkit-backdrop-filter: blur(25px);
             z-index: 100;
-            box-shadow: -15px 0 35px rgba(0,0,0,0.6);
+            box-shadow: 0 -15px 35px rgba(0,0,0,0.7);
+            transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1); /* Ultra smooth ease-out spring physics */
+            
+            /* Re-orient contents inside the bottom wide grid layout */
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 25px;
         }
 
-        .panel-header h2 { margin-top: 0; font-size: 2.1rem; color: #fff; letter-spacing: 1px; font-weight: 600; }
-        .planet-type { color: var(--accent-color); text-transform: uppercase; font-size: 0.75rem; margin-top: -15px; margin-bottom: 30px; letter-spacing: 2px; font-weight: 700; }
-        .info-section { margin-bottom: 22px; }
-        .info-label { font-size: 0.7rem; color: #64748b; text-transform: uppercase; margin-bottom: 5px; letter-spacing: 1px; font-weight: 600; }
-        .info-value { font-size: 1.05rem; color: #f1f5f9; }
-        .description { line-height: 1.65; color: #cbd5e1; margin-top: 10px; font-size: 0.95rem; }
+        /* Class added dynamically via JavaScript when a planet is selected */
+        .detail-panel.active {
+            transform: translate(-50%, 0%); /* Pulls up smoothly into frame */
+        }
+
+        /* Close cross button configuration layout */
+        .close-btn {
+            position: absolute;
+            top: 15px;
+            right: 20px;
+            background: none;
+            border: none;
+            color: #64748b;
+            font-size: 1.4rem;
+            cursor: pointer;
+            transition: color 0.2s;
+        }
+        .close-btn:hover {
+            color: var(--accent-color);
+        }
+
+        .panel-header {
+            grid-column: 1 / -1; /* Spans the full top row of the bottom drawer layout */
+            display: flex;
+            align-items: baseline;
+            gap: 15px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            padding-bottom: 5px;
+            margin-bottom: -5px;
+        }
+
+        .panel-header h2 { margin: 0; font-size: 1.8rem; color: #fff; letter-spacing: 1px; font-weight: 600; }
+        .planet-type { color: var(--accent-color); text-transform: uppercase; font-size: 0.7rem; margin: 0; letter-spacing: 2px; font-weight: 700; }
+        .info-section { margin-bottom: 0; }
+        .info-label { font-size: 0.65rem; color: #64748b; text-transform: uppercase; margin-bottom: 4px; letter-spacing: 1px; font-weight: 600; }
+        .info-value { font-size: 0.95rem; color: #f1f5f9; }
+        .description { line-height: 1.5; color: #cbd5e1; margin-top: 4px; font-size: 0.85rem; }
 
         /* Rotational Transformation Core Rules */
         @keyframes cosmic-revolution {
@@ -306,36 +350,43 @@
     </div>
 
     <div class="detail-panel" id="detailPanel">
+        <button class="close-btn" onclick="closeDetails()">×</button>
+        
         <div class="panel-header">
             <h2 id="pName">Solar System</h2>
             <div class="planet-type" id="pType">Simulation</div>
         </div>
 
-        <div class="info-section">
-            <div class="info-label">Self Orbit (Rotation Period)</div>
-            <div class="info-value" id="pSelf">Select a celestial body</div>
-        </div>
-
-        <div class="info-section">
-            <div class="info-label">Full Orbit (Orbital Period)</div>
-            <div class="info-value" id="pFull">Select a celestial body</div>
-        </div>
-
-        <div class="info-section">
-            <div class="info-label">Moons / Satellites</div>
-            <div class="info-value" id="pMoons">-</div>
-        </div>
-
-        <div class="info-section">
-            <div class="info-label">Science Profile</div>
-            <div class="description" id="pDesc">
-                Hover over an orbiting planet to lock tracking telemetries and click its 3D body structure to explore data metrics.
+        <div>
+            <div class="info-section" style="margin-bottom: 12px;">
+                <div class="info-label">Self Orbit (Rotation Period)</div>
+                <div class="info-value" id="pSelf">-</div>
             </div>
+            <div class="info-section">
+                <div class="info-label">Full Orbit (Orbital Period)</div>
+                <div class="info-value" id="pFull">-</div>
+            </div>
+        </div>
+
+        <div>
+            <div class="info-section" style="margin-bottom: 12px;">
+                <div class="info-label">Moons / Satellites</div>
+                <div class="info-value" id="pMoons">-</div>
+            </div>
+            <div class="info-section">
+                <div class="info-label">Telemetry Metrics</div>
+                <div class="info-value" id="pMetrics">-</div>
+            </div>
+        </div>
+
+        <div class="info-section">
+            <div class="info-label">Science Profile Overview</div>
+            <div class="description" id="pDesc">-</div>
         </div>
     </div>
 
     <script>
-// --- 1. AMBIENT DRIFT STAR BACKGROUND ---
+    // --- 1. AMBIENT DRIFT STAR BACKGROUND ---
     const canvas = document.getElementById('space-canvas');
     const ctx = canvas.getContext('2d');
     let stars = [];
@@ -378,10 +429,9 @@
             self: "25 to 35 Earth Days", 
             full: "Center of Orbit (N/A)", 
             moons: "0 Primary",
-            temp: "15,000,000°C (Core) / 5,500°C (Surface)",
-            distance: "0 AU (The Center)",
-            fact: "The Sun travels around the center of the Milky Way galaxy, taking about 230 million years to complete one cosmic loop!",
-            desc: "The Sun sits dead-center in our system. Its massive gravitational pull acts as the anchor holding every planet in its respective orbital path."
+            metrics: "Temp: ~5,500°C | Dist: 0 AU",
+            desc: "The Sun sits dead-center in our system. Its massive gravitational pull acts as the anchor holding every planet in its respective orbital path.",
+            fact: "The Sun travels around the center of the Milky Way galaxy, taking about 230 million years to complete one cosmic loop!"
         },
         mercury: {
             name: "Mercury", 
@@ -389,10 +439,9 @@
             self: "59 Earth Days", 
             full: "88 Earth Days", 
             moons: "0",
-            temp: "-180°C to 430°C",
-            distance: "0.39 AU",
-            fact: "Even though it is closest to the Sun, it is not the hottest planet because it has no atmosphere to trap heat!",
-            desc: "Being closest to the Sun, Mercury features the tightest, fastest orbital loop in the solar system."
+            metrics: "Temp: -180°C to 430°C | Dist: 0.39 AU",
+            desc: "Being closest to the Sun, Mercury features the tightest, fastest orbital loop in the solar system.",
+            fact: "Even though it is closest to the Sun, it is not the hottest planet because it has no atmosphere to trap heat!"
         },
         venus: {
             name: "Venus", 
@@ -400,10 +449,9 @@
             self: "243 Earth Days (Retrograde)", 
             full: "225 Earth Days", 
             moons: "0",
-            temp: "465°C (Constant)",
-            distance: "0.72 AU",
-            fact: "Venus is the brightest natural object in Earth's night sky after the Moon, and can even cast shadows on a dark night.",
-            desc: "Venus rotates backward so slowly on its own axis that its 'day' is actually longer than its orbital year. Its greenhouse effect makes it a scorching furnace."
+            metrics: "Temp: 465°C | Dist: 0.72 AU",
+            desc: "Venus rotates backward so slowly on its own axis that its 'day' is actually longer than its orbital year. Its greenhouse effect makes it a scorching furnace.",
+            fact: "Venus is the brightest natural object in Earth's night sky after the Moon, and can even cast shadows on a dark night."
         },
         earth: {
             name: "Earth", 
@@ -411,10 +459,9 @@
             self: "24 Hours", 
             full: "365.25 Days", 
             moons: "1 (The Moon)",
-            temp: "-89°C to 58°C",
-            distance: "1.0 AU (Baseline)",
-            fact: "Earth is the only planet in our solar system not named after a mythological god or goddess.",
-            desc: "Our home base. It completes a single revolution around the sun every 365 days while spinning once per 24 hours to generate our day and night cycles."
+            metrics: "Temp: -89°C to 58°C | Dist: 1.0 AU",
+            desc: "Our home base. It completes a single revolution around the sun every 365 days while spinning once per 24 hours to generate our day and night cycles.",
+            fact: "Earth is the only planet in our solar system not named after a mythological god or goddess."
         },
         mars: {
             name: "Mars", 
@@ -422,10 +469,9 @@
             self: "24.6 Hours", 
             full: "687 Earth Days", 
             moons: "2 (Phobos, Deimos)",
-            temp: "-153°C to 20°C",
-            distance: "1.52 AU",
-            fact: "Mars is home to Olympus Mons, a giant shield volcano that is three times higher than Mount Everest!",
-            desc: "The outer neighbor of Earth. Its year is almost twice as long because its orbital loop tracking path is much larger."
+            metrics: "Temp: -153°C to 20°C | Dist: 1.52 AU",
+            desc: "The outer neighbor of Earth. Its year is almost twice as long because its orbital loop tracking path is much larger.",
+            fact: "Mars is home to Olympus Mons, a giant shield volcano that is three times higher than Mount Everest!"
         },
         jupiter: {
             name: "Jupiter", 
@@ -433,10 +479,9 @@
             self: "10 Hours", 
             full: "12 Earth Years", 
             moons: "95 confirmed",
-            temp: "-110°C (Average)",
-            distance: "5.20 AU",
-            fact: "Jupiter's famous 'Great Red Spot' is a swirling cosmic hurricane bigger than the entire planet Earth that has raged for over 300 years.",
-            desc: "While it takes 12 full Earth years to loop completely around the Sun, it has the fastest self-spin speed of any planet, rotating in just 10 hours."
+            metrics: "Temp: ~ -110°C | Dist: 5.20 AU",
+            desc: "While it takes 12 full Earth years to loop completely around the Sun, it has the fastest self-spin speed of any planet, rotating in just 10 hours.",
+            fact: "Jupiter's famous 'Great Red Spot' is a swirling cosmic hurricane bigger than the entire planet Earth that has raged for over 300 years."
         },
         saturn: {
             name: "Saturn", 
@@ -444,10 +489,9 @@
             self: "10.7 Hours", 
             full: "29 Earth Years", 
             moons: "146 confirmed",
-            temp: "-140°C (Average)",
-            distance: "9.58 AU",
-            fact: "Saturn is the least dense planet in our solar system; if you could find a bathtub big enough to hold it, Saturn would actually float in water!",
-            desc: "A giant gas planet traversing an immense ringed track that takes nearly three decades of Earth time to wrap around the Sun once."
+            metrics: "Temp: ~ -140°C | Dist: 9.58 AU",
+            desc: "A giant gas planet traversing an immense ringed track that takes nearly three decades of Earth time to wrap around the Sun once.",
+            fact: "Saturn is the least dense planet in our solar system; if you could find a bathtub big enough to hold it, Saturn would actually float in water!"
         },
         uranus: {
             name: "Uranus", 
@@ -455,10 +499,9 @@
             self: "17 Hours (97.77° Tilt)", 
             full: "84 Earth Years", 
             moons: "28 confirmed",
-            temp: "-195°C (Average)",
-            distance: "19.22 AU",
-            fact: "Because of its extreme 98-degree tilt, one pole faces the sun directly for 42 years, followed by 42 years of complete darkness.",
-            desc: "Uranus is an icy world that uniquely tilts completely on its side, rolling along its orbital track like a bowling ball."
+            metrics: "Temp: ~ -195°C | Dist: 19.22 AU",
+            desc: "Uranus is an icy world that uniquely tilts completely on its side, rolling along its orbital track like a bowling ball.",
+            fact: "Because of its extreme 98-degree tilt, one pole faces the sun directly for 42 years, followed by 42 years of complete darkness."
         },
         neptune: {
             name: "Neptune", 
@@ -466,10 +509,9 @@
             self: "16 Hours", 
             full: "165 Earth Years", 
             moons: "16 confirmed",
-            temp: "-200°C (Average)",
-            distance: "30.05 AU",
-            fact: "Neptune was the first planet located purely using mathematical calculations before anyone ever spotted it with a telescope!",
-            desc: "Plunged into absolute deep cold, Neptune's orbit is so vast it takes 165 Earth years to complete one single loop around the Sun."
+            metrics: "Temp: ~ -200°C | Dist: 30.05 AU",
+            desc: "Plunged into absolute deep cold, Neptune's orbit is so vast it takes 165 Earth years to complete one single loop around the Sun.",
+            fact: "Neptune was the first planet located purely using mathematical calculations before anyone ever spotted it with a telescope!"
         },
         pluto: {
             name: "Pluto", 
@@ -477,10 +519,9 @@
             self: "6.4 Earth Days", 
             full: "248 Earth Years", 
             moons: "5 (Charon, Styx, Nix, Kerberos, Hydra)",
-            temp: "-225°C (Average)",
-            distance: "39.48 AU",
-            fact: "Pluto is so far away that sunlight takes about 5.5 hours to reach it (compared to just 8 minutes to reach Earth)!",
-            desc: "Positioned at the outermost frontier line. Its orbit is exceptionally slow and tilted compared to the main 8 planetary tracks."
+            metrics: "Temp: ~ -225°C | Dist: 39.48 AU",
+            desc: "Positioned at the outermost frontier line. Its orbit is exceptionally slow and tilted compared to the main 8 planetary tracks.",
+            fact: "Pluto is so far away that sunlight takes about 5.5 hours to reach it (compared to just 8 minutes to reach Earth)!"
         }
     };
 
@@ -488,20 +529,25 @@
         const data = spaceData[key];
         if (!data) return;
         
-        // Update regular fields
+        // Populate layout parameters
         document.getElementById('pName').innerText = data.name;
         document.getElementById('pType').innerText = data.type;
         document.getElementById('pSelf').innerText = data.self;
         document.getElementById('pFull').innerText = data.full;
         document.getElementById('pMoons').innerText = data.moons;
+        document.getElementById('pMetrics').innerText = data.metrics;
         
-        // Format the new data points clearly inside the Science Profile section
         document.getElementById('pDesc').innerHTML = `
-            <strong>Avg Temperature:</strong> ${data.temp}<br>
-            <strong>Distance from Sun:</strong> ${data.distance}<br><br>
-            <strong>Did You Know?</strong> ${data.fact}<br><br>
-            ${data.desc}
+            <strong>Did You Know?</strong> ${data.fact}<br><br>${data.desc}
         `;
+        
+        // Fire up the sliding animation state trigger
+        document.getElementById('detailPanel').classList.add('active');
+    }
+
+    function closeDetails() {
+        // Retracts the layout card cleanly back down under the screen
+        document.getElementById('detailPanel').classList.remove('active');
     }
     </script>
 </body>
