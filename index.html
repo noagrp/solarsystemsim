@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Solar System Sim</title>
+    <style>
+        :root {
+            --space-bg: #03030c;
+            --panel-bg: rgba(7, 7, 22, 0.85);
+            --text-color: #f1f5f9;
+            --accent-color: #38bdf8;
+            
+            /* Relative Orbital Speed Scaling Rules (in seconds per full lap) */
+            --speed-mercury: 6s;
+            --speed-venus: 10s;
+            --speed-earth: 16s;
+            --speed-mars: 24s;
+            --speed-jupiter: 45s;
+            --speed-saturn: 70s;
+            --speed-uranus: 110s;
+            --speed-neptune: 160s;
+            --speed-pluto: 220s;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: var(--space-bg);
+            color: var(--text-color);
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+            position: relative;
+        }
+
+        /* Ambient Cosmic Background */
+        #space-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+            pointer-events: none;
+        }
+
+        /* Left Side: Orbit Sandbox Map */
+        .system-viewport {
+            flex: 1;
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 2;
+            overflow: hidden;
+        }
+
+        /* The Sun (Fixed at Coordinate Center) */
+        .sun {
+            width: 80px;
+            height: 80px;
+            background: radial-gradient(circle at 50% 50%, #ffffff 0%, #ffea00 20%, #ff5500 65%, #990000 100%);
+            border-radius: 50%;
+            box-shadow: 0 0 40px rgba(255, 115, 0, 0.5), 0 0 90px rgba(255, 234, 0, 0.2);
+            z-index: 10;
+            cursor: pointer;
+            position: absolute;
+            transition: transform 0.2s;
+        }
+        .sun:hover {
+            transform: scale(1.1);
+        }
+
+        /* Orbital Ring Track Blueprints */
+        .orbit-track {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            border: 1px dashed rgba(255, 255, 255, 0.08);
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            pointer-events: none; /* Mouse passes right through tracks */
+        }
+
+        /* Rotational Engine Wrappers */
+        .orbit-wrapper {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            animation-name: cosmic-revolution;
+            animation-iteration-count: infinite;
+            animation-timing-function: linear;
+        }
+
+        /* Pauses orbit when student hovers to make clicking easy */
+        .orbit-track:has(.planet-click-box:hover) .orbit-wrapper {
+            animation-play-state: paused;
+        }
+
+        /* Planet Placement Nodes & Click Targets */
+        .planet-click-box {
+            position: absolute;
+            top: 0;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            cursor: pointer;
+            pointer-events: auto; /* Re-enable pointer events for the node */
+            z-index: 15;
+        }
+
+        /* 3D Planet Shading Base */
+        .planet {
+            border-radius: 50%;
+            box-shadow: -6px -6px 15px rgba(0, 0, 0, 0.9) inset, 
+                        1px 1px 5px rgba(255, 255, 255, 0.15) inset;
+            transition: filter 0.2s, transform 0.2s;
+        }
+        .planet-click-box:hover .planet {
+            transform: scale(1.2);
+            filter: brightness(1.2) drop-shadow(0 0 8px var(--accent-color));
+        }
+
+        /* Label Tag styles */
+        .planet-label {
+            font-size: 0.65rem;
+            color: rgba(255, 255, 255, 0.4);
+            margin-top: 4px;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            font-weight: bold;
+            opacity: 0;
+            transition: opacity 0.2s;
+            pointer-events: none;
+        }
+        .planet-click-box:hover .planet-label {
+            opacity: 1;
+            color: var(--accent-color);
+        }
+
+        /* Sizing, Concentric Distance Radii, and Colors */
+        #mercury-track { width: 130px; height: 130px; }
+        #mercury-track .orbit-wrapper { animation-duration: var(--speed-mercury); }
+        #mercury { width: 12px; height: 12px; background: radial-gradient(circle at 30% 30%, #b5b5b5 0%, #555555 70%, #111111 100%); }
+
+        #venus-track   { width: 180px; height: 180px; }
+        #venus-track .orbit-wrapper { animation-duration: var(--speed-venus); }
+        #venus   { width: 18px; height: 18px; background: radial-gradient(circle at 30% 30%, #fff1d0 0%, #b57c42 60%, #1a0d00 100%); }
+
+        #earth-track   { width: 240px; height: 240px; }
+        #earth-track .orbit-wrapper { animation-duration: var(--speed-earth); }
+        #earth   { width: 20px; height: 20px; background: radial-gradient(circle at 30% 30%, #4da6ff 0%, #0033aa 50%, #000022 100%); }
+
+        #mars-track    { width: 300px; height: 300px; }
+        #mars-track .orbit-wrapper { animation-duration: var(--speed-mars); }
+        #mars    { width: 14px; height: 14px; background: radial-gradient(circle at 30% 30%, #ff884d 0%, #992e00 65%, #1a0700 100%); }
+
+        #jupiter-track { width: 390px; height: 390px; }
+        #jupiter-track .orbit-wrapper { animation-duration: var(--speed-jupiter); }
+        #jupiter { width: 38px; height: 38px; background: radial-gradient(circle at 30% 30%, #ffe0b3 0%, #9c602a 50%, #402003 85%, #000000 100%); }
+
+        #saturn-track  { width: 490px; height: 490px; }
+        #saturn-track .orbit-wrapper { animation-duration: var(--speed-saturn); }
+        #saturn  { width: 30px; height: 30px; background: radial-gradient(circle at 30% 30%, #fcedc0 0%, #ab8f52 60%, #302610 90%, #000000 100%); position: relative; }
+        #saturn::after {
+            content: ''; position: absolute; top: 50%; left: 50%;
+            width: 50px; height: 8px; border: 3px solid rgba(171, 143, 82, 0.4); border-radius: 50%;
+            transform: translate(-50%, -50%) rotate(-10deg);
+        }
+
+        #uranus-track  { width: 570px; height: 570px; }
+        #uranus-track .orbit-wrapper { animation-duration: var(--speed-uranus); }
+        #uranus  { width: 24px; height: 24px; background: radial-gradient(circle at 30% 30%, #dffffd 0%, #4faab5 60%, #11363a 90%, #000000 100%); }
+
+        #neptune-track { width: 650px; height: 650px; }
+        #neptune-track .orbit-wrapper { animation-duration: var(--speed-neptune); }
+        #neptune { width: 24px; height: 24px; background: radial-gradient(circle at 30% 30%, #66a3ff 0%, #0f3ba1 65%, #020b24 100%); }
+
+        #pluto-track   { width: 710px; height: 710px; }
+        #pluto-track .orbit-wrapper { animation-duration: var(--speed-pluto); }
+        #pluto   { width: 10px; height: 10px; background: radial-gradient(circle at 30% 30%, #ecdacc 0%, #80695a 70%, #14100c 100%); }
+
+
+        /* Right Side: Dashboard Info Panel */
+        .detail-panel {
+            width: 380px;
+            background-color: var(--panel-bg);
+            border-left: 1px solid rgba(255, 255, 255, 0.08);
+            padding: 35px;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            z-index: 100;
+            box-shadow: -15px 0 35px rgba(0,0,0,0.6);
+        }
+
+        .panel-header h2 { margin-top: 0; font-size: 2.1rem; color: #fff; letter-spacing: 1px; font-weight: 600; }
+        .planet-type { color: var(--accent-color); text-transform: uppercase; font-size: 0.75rem; margin-top: -15px; margin-bottom: 30px; letter-spacing: 2px; font-weight: 700; }
+        .info-section { margin-bottom: 22px; }
+        .info-label { font-size: 0.7rem; color: #64748b; text-transform: uppercase; margin-bottom: 5px; letter-spacing: 1px; font-weight: 600; }
+        .info-value { font-size: 1.05rem; color: #f1f5f9; }
+        .description { line-height: 1.65; color: #cbd5e1; margin-top: 10px; font-size: 0.95rem; }
+
+        /* Rotational Transformation Core Rules */
+        @keyframes cosmic-revolution {
+            from { transform: rotate(0deg); }
+            to   { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+
+    <canvas id="space-canvas"></canvas>
+
+    <div class="system-viewport">
+        <div class="sun" onclick="showDetails('sun')"></div>
+        
+        <div class="orbit-track" id="mercury-track">
+            <div class="orbit-wrapper">
+                <div class="planet-click-box" onclick="showDetails('mercury')">
+                    <div class="planet" id="mercury"></div>
+                    <div class="planet-label">Mercury</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="orbit-track" id="venus-track">
+            <div class="orbit-wrapper">
+                <div class="planet-click-box" onclick="showDetails('venus')">
+                    <div class="planet" id="venus"></div>
+                    <div class="planet-label">Venus</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="orbit-track" id="earth-track">
+            <div class="orbit-wrapper">
+                <div class="planet-click-box" onclick="showDetails('earth')">
+                    <div class="planet" id="earth"></div>
+                    <div class="planet-label">Earth</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="orbit-track" id="mars-track">
+            <div class="orbit-wrapper">
+                <div class="planet-click-box" onclick="showDetails('mars')">
+                    <div class="planet" id="mars"></div>
+                    <div class="planet-label">Mars</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="orbit-track" id="jupiter-track">
+            <div class="orbit-wrapper">
+                <div class="planet-click-box" onclick="showDetails('jupiter')">
+                    <div class="planet" id="jupiter"></div>
+                    <div class="planet-label">Jupiter</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="orbit-track" id="saturn-track">
+            <div class="orbit-wrapper">
+                <div class="planet-click-box" onclick="showDetails('saturn')">
+                    <div class="planet" id="saturn"></div>
+                    <div class="planet-label">Saturn</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="orbit-track" id="uranus-track">
+            <div class="orbit-wrapper">
+                <div class="planet-click-box" onclick="showDetails('uranus')">
+                    <div class="planet" id="uranus"></div>
+                    <div class="planet-label">Uranus</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="orbit-track" id="neptune-track">
+            <div class="orbit-wrapper">
+                <div class="planet-click-box" onclick="showDetails('neptune')">
+                    <div class="planet" id="neptune"></div>
+                    <div class="planet-label">Neptune</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="orbit-track" id="pluto-track">
+            <div class="orbit-wrapper">
+                <div class="planet-click-box" onclick="showDetails('pluto')">
+                    <div class="planet" id="pluto"></div>
+                    <div class="planet-label">Pluto</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="detail-panel" id="detailPanel">
+        <div class="panel-header">
+            <h2 id="pName">Solar System</h2>
+            <div class="planet-type" id="pType">Simulation</div>
+        </div>
+
+        <div class="info-section">
+            <div class="info-label">Self Orbit (Rotation Period)</div>
+            <div class="info-value" id="pSelf">Select a celestial body</div>
+        </div>
+
+        <div class="info-section">
+            <div class="info-label">Full Orbit (Orbital Period)</div>
+            <div class="info-value" id="pFull">Select a celestial body</div>
+        </div>
+
+        <div class="info-section">
+            <div class="info-label">Moons / Satellites</div>
+            <div class="info-value" id="pMoons">-</div>
+        </div>
+
+        <div class="info-section">
+            <div class="info-label">Science Profile</div>
+            <div class="description" id="pDesc">
+                Hover over an orbiting planet to lock tracking telemetries and click its 3D body structure to explore data metrics.
+            </div>
+        </div>
+    </div>
+
+    <script>
+// --- 1. AMBIENT DRIFT STAR BACKGROUND ---
+    const canvas = document.getElementById('space-canvas');
+    const ctx = canvas.getContext('2d');
+    let stars = [];
+
+    function resize() {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+    }
+    window.addEventListener('resize', resize);
+    resize();
+
+    for(let i=0; i<100; i++) {
+        stars.push({
+            x: Math.random() * canvas.width,
+            y: Math.random() * canvas.height,
+            size: Math.random() * 1.2,
+            alpha: Math.random()
+        });
+    }
+
+    function drawStars() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = "#ffffff";
+        for(let i=0; i<stars.length; i++) {
+            let s = stars[i];
+            ctx.globalAlpha = s.alpha;
+            ctx.beginPath();
+            ctx.arc(s.x, s.y, s.size, 0, Math.PI*2);
+            ctx.fill();
+        }
+        requestAnimationFrame(drawStars);
+    }
+    drawStars();
+
+    // --- 2. EXPANDED DATA REGISTRY ---
+    const spaceData = {
+        sun: {
+            name: "The Sun", 
+            type: "Yellow Dwarf Star",
+            self: "25 to 35 Earth Days", 
+            full: "Center of Orbit (N/A)", 
+            moons: "0 Primary",
+            temp: "15,000,000°C (Core) / 5,500°C (Surface)",
+            distance: "0 AU (The Center)",
+            fact: "The Sun travels around the center of the Milky Way galaxy, taking about 230 million years to complete one cosmic loop!",
+            desc: "The Sun sits dead-center in our system. Its massive gravitational pull acts as the anchor holding every planet in its respective orbital path."
+        },
+        mercury: {
+            name: "Mercury", 
+            type: "Terrestrial Planet",
+            self: "59 Earth Days", 
+            full: "88 Earth Days", 
+            moons: "0",
+            temp: "-180°C to 430°C",
+            distance: "0.39 AU",
+            fact: "Even though it is closest to the Sun, it is not the hottest planet because it has no atmosphere to trap heat!",
+            desc: "Being closest to the Sun, Mercury features the tightest, fastest orbital loop in the solar system."
+        },
+        venus: {
+            name: "Venus", 
+            type: "Terrestrial Planet",
+            self: "243 Earth Days (Retrograde)", 
+            full: "225 Earth Days", 
+            moons: "0",
+            temp: "465°C (Constant)",
+            distance: "0.72 AU",
+            fact: "Venus is the brightest natural object in Earth's night sky after the Moon, and can even cast shadows on a dark night.",
+            desc: "Venus rotates backward so slowly on its own axis that its 'day' is actually longer than its orbital year. Its greenhouse effect makes it a scorching furnace."
+        },
+        earth: {
+            name: "Earth", 
+            type: "Terrestrial Planet",
+            self: "24 Hours", 
+            full: "365.25 Days", 
+            moons: "1 (The Moon)",
+            temp: "-89°C to 58°C",
+            distance: "1.0 AU (Baseline)",
+            fact: "Earth is the only planet in our solar system not named after a mythological god or goddess.",
+            desc: "Our home base. It completes a single revolution around the sun every 365 days while spinning once per 24 hours to generate our day and night cycles."
+        },
+        mars: {
+            name: "Mars", 
+            type: "Terrestrial Planet",
+            self: "24.6 Hours", 
+            full: "687 Earth Days", 
+            moons: "2 (Phobos, Deimos)",
+            temp: "-153°C to 20°C",
+            distance: "1.52 AU",
+            fact: "Mars is home to Olympus Mons, a giant shield volcano that is three times higher than Mount Everest!",
+            desc: "The outer neighbor of Earth. Its year is almost twice as long because its orbital loop tracking path is much larger."
+        },
+        jupiter: {
+            name: "Jupiter", 
+            type: "Gas Giant",
+            self: "10 Hours", 
+            full: "12 Earth Years", 
+            moons: "95 confirmed",
+            temp: "-110°C (Average)",
+            distance: "5.20 AU",
+            fact: "Jupiter's famous 'Great Red Spot' is a swirling cosmic hurricane bigger than the entire planet Earth that has raged for over 300 years.",
+            desc: "While it takes 12 full Earth years to loop completely around the Sun, it has the fastest self-spin speed of any planet, rotating in just 10 hours."
+        },
+        saturn: {
+            name: "Saturn", 
+            type: "Gas Giant",
+            self: "10.7 Hours", 
+            full: "29 Earth Years", 
+            moons: "146 confirmed",
+            temp: "-140°C (Average)",
+            distance: "9.58 AU",
+            fact: "Saturn is the least dense planet in our solar system; if you could find a bathtub big enough to hold it, Saturn would actually float in water!",
+            desc: "A giant gas planet traversing an immense ringed track that takes nearly three decades of Earth time to wrap around the Sun once."
+        },
+        uranus: {
+            name: "Uranus", 
+            type: "Ice Giant",
+            self: "17 Hours (97.77° Tilt)", 
+            full: "84 Earth Years", 
+            moons: "28 confirmed",
+            temp: "-195°C (Average)",
+            distance: "19.22 AU",
+            fact: "Because of its extreme 98-degree tilt, one pole faces the sun directly for 42 years, followed by 42 years of complete darkness.",
+            desc: "Uranus is an icy world that uniquely tilts completely on its side, rolling along its orbital track like a bowling ball."
+        },
+        neptune: {
+            name: "Neptune", 
+            type: "Ice Giant",
+            self: "16 Hours", 
+            full: "165 Earth Years", 
+            moons: "16 confirmed",
+            temp: "-200°C (Average)",
+            distance: "30.05 AU",
+            fact: "Neptune was the first planet located purely using mathematical calculations before anyone ever spotted it with a telescope!",
+            desc: "Plunged into absolute deep cold, Neptune's orbit is so vast it takes 165 Earth years to complete one single loop around the Sun."
+        },
+        pluto: {
+            name: "Pluto", 
+            type: "Dwarf Planet",
+            self: "6.4 Earth Days", 
+            full: "248 Earth Years", 
+            moons: "5 (Charon, Styx, Nix, Kerberos, Hydra)",
+            temp: "-225°C (Average)",
+            distance: "39.48 AU",
+            fact: "Pluto is so far away that sunlight takes about 5.5 hours to reach it (compared to just 8 minutes to reach Earth)!",
+            desc: "Positioned at the outermost frontier line. Its orbit is exceptionally slow and tilted compared to the main 8 planetary tracks."
+        }
+    };
+
+    function showDetails(key) {
+        const data = spaceData[key];
+        if (!data) return;
+        
+        // Update regular fields
+        document.getElementById('pName').innerText = data.name;
+        document.getElementById('pType').innerText = data.type;
+        document.getElementById('pSelf').innerText = data.self;
+        document.getElementById('pFull').innerText = data.full;
+        document.getElementById('pMoons').innerText = data.moons;
+        
+        // Format the new data points clearly inside the Science Profile section
+        document.getElementById('pDesc').innerHTML = `
+            <strong>Avg Temperature:</strong> ${data.temp}<br>
+            <strong>Distance from Sun:</strong> ${data.distance}<br><br>
+            <strong>Did You Know?</strong> ${data.fact}<br><br>
+            ${data.desc}
+        `;
+    }
+    </script>
+</body>
+</html>
