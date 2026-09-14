@@ -16,8 +16,7 @@
     .knowledge-tabs button.active{color:#fff;border-color:rgba(56,189,248,.55);background:rgba(56,189,248,.12)}
     .knowledge-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px 28px;align-content:start}
     .knowledge-card{min-width:0}.knowledge-card .info-value{font-size:1.05rem;line-height:1.35}
-    .learn-copy{line-height:1.75;color:#cbd5e1;font-size:1rem;max-width:900px}
-    .learn-copy strong{color:#fff}
+    .learn-copy{line-height:1.75;color:#cbd5e1;font-size:1rem;max-width:900px}.learn-copy strong{color:#fff}
     @media(pointer:coarse){.planet-label{opacity:.78;color:rgba(255,255,255,.75)}.planet-click-box{min-width:34px;min-height:34px;justify-content:center}.sim-tools button{padding:9px 12px}}
     @media(max-width:768px){.detail-panel{padding-left:20px;padding-right:20px;gap:22px}.panel-header h2{padding-right:48px}.panel-content-grid{overflow-y:auto;padding-bottom:20px}.stats-block{grid-template-columns:1fr 1fr;gap:16px}.knowledge-grid{grid-template-columns:1fr 1fr}.scale-note{font-size:9px}.sim-tools{max-width:calc(100vw - 24px)}}
     @media(max-width:430px){.stats-block,.knowledge-grid{grid-template-columns:1fr}.knowledge-tabs{gap:6px}.knowledge-tabs button{padding:7px 10px}.scale-note{max-width:88vw;overflow:hidden;text-overflow:ellipsis}}
@@ -31,12 +30,8 @@
   let theme=document.querySelector('meta[name="theme-color"]');if(!theme){theme=document.createElement('meta');theme.name='theme-color';document.head.appendChild(theme)}theme.content='#03030c';
   let capable=document.querySelector('meta[name="apple-mobile-web-app-capable"]');if(!capable){capable=document.createElement('meta');capable.name='apple-mobile-web-app-capable';document.head.appendChild(capable)}capable.content='yes';
 
-  function fitSystem(){
-    const pad=34, w=Math.max(280,window.innerWidth-pad), h=Math.max(280,window.innerHeight-pad);
-    const scale=Math.min(1,w/710,h/710);
-    document.documentElement.style.setProperty('--sim-scale',String(Math.max(.36,scale)));
-  }
-  fitSystem();window.addEventListener('resize',fitSystem);window.addEventListener('orientationchange',()=>setTimeout(fitSystem,120));
+  function fitSystem(){const pad=34,w=Math.max(280,innerWidth-pad),h=Math.max(280,innerHeight-pad),scale=Math.min(1,w/710,h/710);document.documentElement.style.setProperty('--sim-scale',String(Math.max(.36,scale)))}
+  fitSystem();addEventListener('resize',fitSystem);addEventListener('orientationchange',()=>setTimeout(fitSystem,120));
 
   const knowledge={
     sun:{diameter:'1.39 million km',mass:'1.989 × 10³⁰ kg',gravity:'274 m/s²',distance:'0 AU',orbitSpeed:'~220 km/s around Milky Way',tilt:'7.25° to ecliptic',atmosphere:'~73% hydrogen, ~25% helium by mass',surface:'Photosphere ~5,500°C; core ~15 million°C',rings:'No',missions:'SOHO, SDO, Parker Solar Probe, Solar Orbiter',why:'The Sun contains about 99.8% of the Solar System’s mass and powers almost every surface ecosystem on Earth.',explore:'Its magnetic activity drives sunspots, flares and coronal mass ejections that can affect satellites, radio, navigation and power grids.'},
@@ -53,36 +48,35 @@
   const moonCounts={mercury:'0',venus:'0',earth:'1',mars:'2',jupiter:'115 known',saturn:'293 known',uranus:'29 known',neptune:'16 known',pluto:'5'};
   Object.entries(moonCounts).forEach(([k,v])=>{if(spaceData[k])spaceData[k].moons=v});
 
-  const panel=document.getElementById('detailPanel');
-  const content=panel.querySelector('.panel-content-grid');
-  const originalStats=content.querySelector('.stats-block');
-  const originalDesc=content.querySelector('.info-section:last-child');
-  const tabs=document.createElement('div');tabs.className='knowledge-tabs';tabs.innerHTML='<button data-tab="overview" class="active">Overview</button><button data-tab="physical">Physical</button><button data-tab="orbit">Orbit</button><button data-tab="explore">Explore</button>';
-  panel.querySelector('.panel-header').appendChild(tabs);
+  const panel=document.getElementById('detailPanel'),content=panel.querySelector('.panel-content-grid'),originalStats=content.querySelector('.stats-block'),originalDesc=content.querySelector('.info-section:last-child');
+  const tabs=document.createElement('div');tabs.className='knowledge-tabs';tabs.innerHTML='<button data-tab="basic" class="active">Basic</button><button data-tab="physical">Physical</button><button data-tab="orbit">Orbit</button><button data-tab="facts">Scientific Facts</button><button data-tab="legend">Legend</button>';panel.querySelector('.panel-header').appendChild(tabs);
   const extra=document.createElement('div');extra.className='knowledge-grid';extra.style.display='none';content.appendChild(extra);
-  let currentKey='earth';
+  let currentKey='earth',legendMode=false;
   function card(label,value){return `<div class="knowledge-card"><div class="info-label">${label}</div><div class="info-value">${value||'—'}</div></div>`}
+  function legendHTML(){return '<div class="learn-copy" style="grid-column:1/-1"><strong>AU</strong> — Astronomical Unit. 1 AU is the average Earth–Sun distance, about 149.6 million km.<br><br><strong>Terrestrial / rocky planet</strong> — a dense world with a solid surface: Mercury, Venus, Earth and Mars.<br><br><strong>Gas giant</strong> — a giant planet dominated by hydrogen and helium: Jupiter and Saturn.<br><br><strong>Ice giant</strong> — Uranus and Neptune; their interiors contain more water-, ammonia- and methane-rich material than the gas giants.<br><br><strong>Rotation period</strong> — how long a world takes to spin once. <strong>Orbital period</strong> — how long it takes to orbit the Sun once. <strong>Axial tilt</strong> — the tilt of its spin axis, an important cause of seasons.<br><br><strong>Retrograde</strong> — rotating or orbiting opposite the usual direction.<br><br><strong>Dwarf planet</strong> — a round body orbiting the Sun that has not cleared other objects from its orbital neighborhood. Pluto is one example.<br><br><strong>Important:</strong> this simulation preserves the original artistic spacing and relative motion for readability. Planet sizes, orbital distances and animation speeds are not true scale.</div>'}
   function renderTab(tab){
     tabs.querySelectorAll('button').forEach(b=>b.classList.toggle('active',b.dataset.tab===tab));
-    if(tab==='overview'){originalStats.style.display='grid';originalDesc.style.display='block';extra.style.display='none';return}
+    if(tab==='legend'){legendMode=true;originalStats.style.display='none';originalDesc.style.display='none';extra.style.display='grid';extra.innerHTML=legendHTML();return}
+    legendMode=false;
+    if(tab==='basic'){originalStats.style.display='grid';originalDesc.style.display='block';extra.style.display='none';return}
     originalStats.style.display='none';originalDesc.style.display='none';extra.style.display='grid';const d=knowledge[currentKey]||{};
     if(tab==='physical')extra.innerHTML=card('Diameter',d.diameter)+card('Mass',d.mass)+card('Gravity',d.gravity)+card('Atmosphere / Composition',d.atmosphere)+card('Surface / Structure',d.surface)+card('Ring System',d.rings);
     else if(tab==='orbit')extra.innerHTML=card('Distance from Sun',d.distance)+card('Orbital Speed',d.orbitSpeed)+card('Axial Tilt',d.tilt)+card('Rotation',spaceData[currentKey]?.self)+card('Orbital Period',spaceData[currentKey]?.full)+card('Moons',spaceData[currentKey]?.moons);
-    else extra.innerHTML=`<div class="learn-copy" style="grid-column:1/-1"><strong>Why it matters</strong><br>${d.why||''}<br><br><strong>Exploration & discovery</strong><br>${d.explore||''}<br><br><strong>Notable missions</strong><br>${d.missions||'—'}</div>`;
+    else extra.innerHTML=`<div class="learn-copy" style="grid-column:1/-1"><strong>Why it matters</strong><br>${d.why||''}<br><br><strong>Scientific highlight</strong><br>${d.explore||''}<br><br><strong>Notable missions</strong><br>${d.missions||'—'}</div>`;
   }
   tabs.addEventListener('click',e=>{const b=e.target.closest('button[data-tab]');if(b)renderTab(b.dataset.tab)});
   const baseShow=showDetails;
-  showDetails=function(key){currentKey=key;baseShow(key);renderTab('overview')};
+  showDetails=function(key){currentKey=key;legendMode=false;baseShow(key);renderTab('basic')};
 
   document.querySelectorAll('.planet-click-box').forEach(box=>{box.tabIndex=0;box.setAttribute('role','button');const label=box.querySelector('.planet-label')?.textContent||'planet';box.setAttribute('aria-label',`Open ${label} details`);box.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();box.click()}})});
   const sun=document.querySelector('.sun');sun.tabIndex=0;sun.setAttribute('role','button');sun.setAttribute('aria-label','Open Sun details');sun.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();sun.click()}});
 
-  const tools=document.createElement('div');tools.className='sim-tools';tools.innerHTML='<button id="simPause">Pause</button><button id="simSpeed">Speed 1×</button><button id="simLearn">Learn</button>';document.body.appendChild(tools);
+  const tools=document.createElement('div');tools.className='sim-tools';tools.innerHTML='<button id="simPause">Pause</button><button id="simSpeed">Speed 1×</button><button id="simLegend">Legend</button>';document.body.appendChild(tools);
   const note=document.createElement('div');note.className='scale-note';note.textContent='Relative visualization — sizes, distances and orbital speeds are not to scale';document.body.appendChild(note);
-  let paused=false,speedIndex=1;const speeds=[.5,1,2,4];
+  let paused=false,speedIndex=1;const speeds=[.5,1,2,4],baseDurations=new Map();document.querySelectorAll('.orbit-wrapper').forEach(x=>baseDurations.set(x,parseFloat(getComputedStyle(x).animationDuration)||1));
   document.getElementById('simPause').onclick=()=>{paused=!paused;document.querySelectorAll('.orbit-wrapper').forEach(x=>x.style.animationPlayState=paused?'paused':'running');document.getElementById('simPause').textContent=paused?'Play':'Pause'};
-  document.getElementById('simSpeed').onclick=()=>{speedIndex=(speedIndex+1)%speeds.length;const mult=speeds[speedIndex];document.querySelectorAll('.orbit-wrapper').forEach(x=>x.style.animationDuration=`calc(${getComputedStyle(x).animationDuration} / ${mult})`);document.getElementById('simSpeed').textContent=`Speed ${mult}×`};
-  document.getElementById('simLearn').onclick=()=>{showDetails('earth');document.getElementById('pName').textContent='Solar System Guide';document.getElementById('pType').textContent='How to read this simulation';originalStats.style.display='none';originalDesc.style.display='none';extra.style.display='grid';tabs.querySelectorAll('button').forEach(b=>b.classList.remove('active'));extra.innerHTML='<div class="learn-copy" style="grid-column:1/-1"><strong>1 AU</strong> is the average Earth–Sun distance, about 149.6 million km.<br><br><strong>Rocky planets</strong> — Mercury, Venus, Earth and Mars — are small, dense worlds with solid surfaces. <strong>Gas giants</strong> Jupiter and Saturn are dominated by hydrogen and helium. <strong>Ice giants</strong> Uranus and Neptune contain more water-, ammonia- and methane-rich material in their interiors.<br><br><strong>Axial tilt</strong> helps create seasons. <strong>Orbital period</strong> is a world’s year. <strong>Rotation period</strong> is how long it takes to spin once.<br><br><strong>Pluto</strong> is a dwarf planet: it orbits the Sun and is round, but it has not cleared other objects from its orbital neighborhood.<br><br>This animation keeps the original artistic spacing and relative motion for readability. It is not a true scale model.</div>'};
+  document.getElementById('simSpeed').onclick=()=>{speedIndex=(speedIndex+1)%speeds.length;const mult=speeds[speedIndex];document.querySelectorAll('.orbit-wrapper').forEach(x=>x.style.animationDuration=(baseDurations.get(x)/mult)+'s');document.getElementById('simSpeed').textContent=`Speed ${mult}×`};
+  document.getElementById('simLegend').onclick=()=>{document.getElementById('pName').textContent='Legend';document.getElementById('pType').textContent='Terms & scale guide';panel.classList.add('active');renderTab('legend')};
 
-  if('serviceWorker' in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('./service-worker.js').catch(()=>{}));
+  if('serviceWorker' in navigator)addEventListener('load',()=>navigator.serviceWorker.register('./service-worker.js').catch(()=>{}));
 })();
